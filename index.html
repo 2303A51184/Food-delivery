@@ -134,7 +134,7 @@
       </div>
     </div>
 
-    <h2 class="section-title">Pasta & Breads</h2>
+    <h2 class="section-title">Breads & Pasta</h2>
     <div class="menu">
       <div class="card">
         <img src="https://www.sharmispassions.com/wp-content/uploads/2020/03/WhiteSaucePasta7.jpg" alt="White Sauce Pasta">
@@ -153,7 +153,6 @@
         <h3>Tandoori Roti</h3><p>₹40</p><button onclick="addToCart('Tandoori Roti',40)">Add to Cart</button>
       </div>
       <div class="card">
-        <!-- Butter Naan image replaced with the URL you provided -->
         <img src="https://img.freepik.com/premium-photo/butter-naan-panner-butter-masala-indian-dish_198067-742857.jpg?w=2000" alt="Butter Naan">
         <h3>Butter Naan</h3><p>₹50</p><button onclick="addToCart('Butter Naan',50)">Add to Cart</button>
       </div>
@@ -220,6 +219,7 @@
     </div>
   </div>
 
+  <!-- Scripts -->
   <script>
     // STATE
     let cart = [], total = 0;
@@ -227,239 +227,96 @@
     let currentOrder = null;
     let map, marker, pathIndex = 0, trackingInterval = null;
 
-    // sample route coordinates (Warangal-ish). Replace with real path if available.
     const route = [
-      { lat: 17.9784, lng: 79.5596 }, // restaurant / start
+      { lat: 17.9784, lng: 79.5596 },
       { lat: 17.9810, lng: 79.5620 },
       { lat: 17.9860, lng: 79.5650 },
-      { lat: 17.9905, lng: 79.5670 }  // customer / end
+      { lat: 17.9905, lng: 79.5670 }
     ];
 
-    // UTIL: scroll to element
-    function scrollToSection(id) {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    function scrollToSection(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'});}
+    
+    function addToCart(item, price){
+      cart.push({item, price}); total += price;
+      document.getElementById('cartSection').style.display = 'block'; updateCart();
     }
-
-    // CART
-    function addToCart(item, price) {
-      cart.push({ item, price });
-      total += price;
-      document.getElementById('cartSection').style.display = 'block';
-      updateCart();
-    }
-    function updateCart() {
+    function updateCart(){
       const ci = document.getElementById('cartItems');
-      if (cart.length === 0) {
-        ci.innerHTML = 'No items yet.';
-      } else {
-        ci.innerHTML = '';
-        cart.forEach((c, i) => { ci.innerHTML += `<p>${i+1}. ${c.item} – ₹${c.price}</p>`; });
-      }
+      ci.innerHTML = cart.length? cart.map((c,i)=>`${i+1}. ${c.item} – ₹${c.price}`).join('<br>') : 'No items yet.';
       document.getElementById('totalAmount').innerText = total;
     }
 
-    // Payment UI
-    function setupPaymentInputs() {
-      document.querySelectorAll('input[name="payment"]').forEach(input => {
-        input.addEventListener('change', function () {
-          document.getElementById('upiQR').style.display = this.value === 'upi' ? 'block' : 'none';
-          document.getElementById('cardForm').style.display = this.value === 'card' ? 'block' : 'none';
+    function setupPaymentInputs(){
+      document.querySelectorAll('input[name="payment"]').forEach(input=>{
+        input.addEventListener('change', function(){
+          document.getElementById('upiQR').style.display = this.value==='upi'?'block':'none';
+          document.getElementById('cardForm').style.display = this.value==='card'?'block':'none';
         });
       });
     }
 
-    // CHECKOUT -> requires login -> creates order -> starts tracking
-    function checkout() {
-      if (!document.querySelector('input[name="payment"]:checked')) {
-        return alert('Please select a payment method!');
-      }
-      if (!loggedIn) {
-        openLogin();
-        return alert('Please login first to place an order!');
-      }
+    function checkout(){
+      if(!document.querySelector('input[name="payment"]:checked')) return alert('Select payment!');
+      if(!loggedIn){openLogin(); return alert('Login first!');}
 
-      // simulate success
       document.getElementById('successMessage').style.display = 'block';
-      currentOrder = { items: [...cart], total: total, status: "Preparing your food 🍳" };
+      currentOrder={items:[...cart], total:total, status:"Preparing your food 🍳"};
       showOrderStatus();
+      cart=[]; total=0; updateCart();
 
-      // clear cart UI & state
-      cart = []; total = 0; updateCart();
-
-      // show trackOrders section and after short delays change status and begin tracking
-      document.getElementById('trackOrders').style.display = 'block';
-      setTimeout(() => {
-        currentOrder.status = "Out for Delivery 🛵";
-        showOrderStatus();
-        // initialize map if not already and start moving marker
-        if (!map) {
-          // map will initialize when API script calls initMap()
-          // but if initMap already executed, start tracking
-          if (typeof initMap === 'function') {
-            // if maps loaded already initMap should have been called by API callback
-            // call startMapTracking after short delay to ensure map is ready
-            setTimeout(startMapTracking, 500);
-          }
-        } else {
-          startMapTracking();
-        }
-      }, 2000);
-    }
-
-    function showOrderStatus() {
-      if (!currentOrder) {
-        document.getElementById('orderStatus').innerHTML = '<p>No order placed yet.</p>';
-        return;
-      }
-      document.getElementById('orderStatus').innerHTML = `
-        <div class="order-status">
-          <p><b>Order Update</b></p>
-          <p>Status: ${currentOrder.status}</p>
-          <p>Total: ₹${currentOrder.total}</p>
-        </div>`;
-    }
-
-    // MAP: initMap is called by Google Maps API callback
-    function initMap() {
-      const center = route[0] || { lat: 17.9784, lng: 79.5596 };
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: center,
-        zoom: 14
-      });
-
-      // Bike icon (replace URL if you prefer a different image)
-      const bikeIcon = {
-        url: "https://cdn-icons-png.flaticon.com/512/2972/2972185.png",
-        scaledSize: new google.maps.Size(48, 48),
-        anchor: new google.maps.Point(24, 24)
-      };
-
-      marker = new google.maps.Marker({
-        position: center,
-        map: map,
-        icon: bikeIcon,
-        title: "Delivery Partner"
-      });
-
-      // if order already out for delivery when map loads, start tracking
-      if (currentOrder && currentOrder.status && currentOrder.status.includes("Out for Delivery")) {
+      document.getElementById('trackOrders').style.display='block';
+      setTimeout(()=>{
+        currentOrder.status="Out for Delivery 🛵"; showOrderStatus();
         startMapTracking();
-      }
+      },2000);
     }
 
-    // Start simulating the delivery partner along route
-    function startMapTracking() {
-      // clear any previous interval
-      if (trackingInterval) {
-        clearInterval(trackingInterval);
-      }
-      // make sure marker and map exist
-      if (!map || !marker) {
-        // wait and retry shortly
-        setTimeout(startMapTracking, 500);
-        return;
-      }
-      pathIndex = 0;
-      marker.setPosition(route[0]);
-      map.panTo(route[0]);
-
-      trackingInterval = setInterval(() => {
-        pathIndex++;
-        if (pathIndex >= route.length) {
-          // delivered
-          clearInterval(trackingInterval);
-          currentOrder.status = "Delivered ✅";
-          showOrderStatus();
-          return;
-        }
-        const pos = route[pathIndex];
-        marker.setPosition(pos);
-        map.panTo(pos);
-      }, 3000); // move every 3 seconds (change speed here)
+    function showOrderStatus(){
+      if(!currentOrder){document.getElementById('orderStatus').innerHTML='<p>No order placed yet.</p>'; return;}
+      document.getElementById('orderStatus').innerHTML=`
+      <div class="order-status">
+        <p><b>Order Update</b></p>
+        <p>Status: ${currentOrder.status}</p>
+        <p>Total: ₹${currentOrder.total}</p>
+      </div>`;
     }
 
     // LOGIN / LOGOUT
-    function openLogin() { document.getElementById('loginModal').style.display = 'flex'; }
-    function login() {
-      const u = document.getElementById('username').value.trim();
-      const p = document.getElementById('password').value.trim();
-      if (u && p) {
-        loggedIn = true;
-        document.getElementById('loginModal').style.display = 'none';
-        document.getElementById('loginNav').style.display = 'none';
-        document.getElementById('logoutBtn').style.display = 'inline';
+    function openLogin(){ document.getElementById('loginModal').style.display='flex'; }
+    function login(){
+      const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value.trim();
+      if(u && p){ loggedIn=true; document.getElementById('loginModal').style.display='none';
+        document.getElementById('loginNav').style.display='none'; document.getElementById('logoutBtn').style.display='inline';
         alert('Login successful!');
-      } else {
-        alert('Enter username & password!');
-      }
+      } else alert('Enter username & password!');
     }
-    function logout() {
-      loggedIn = false;
-      document.getElementById('loginNav').style.display = 'inline';
-      document.getElementById('logoutBtn').style.display = 'none';
-      alert('You have logged out.');
+    function logout(){ loggedIn=false; document.getElementById('loginNav').style.display='inline';
+      document.getElementById('logoutBtn').style.display='none'; alert('Logged out.'); }
+    window.onclick=function(e){if(e.target===document.getElementById('loginModal')) document.getElementById('loginModal').style.display="none";}
+
+    // Google Maps Tracking
+    function initMap(){
+      map=new google.maps.Map(document.getElementById('map'),{zoom:16, center: route[0]});
+      marker=new google.maps.Marker({position: route[0], map: map, title:"Your Delivery Partner",
+        icon:{url:"https://cdn-icons-png.flaticon.com/512/2972/2972185.png", scaledSize:new google.maps.Size(48,48)} });
     }
 
-    // modal close on outside click
-    window.onclick = function(e) {
-      if (e.target === document.getElementById('loginModal')) {
-        document.getElementById('loginModal').style.display = "none";
-      }
-    };
+    function startMapTracking(){
+      pathIndex=0; if(trackingInterval) clearInterval(trackingInterval);
+      marker.setPosition(route[0]); map.panTo(route[0]);
+      trackingInterval=setInterval(()=>{
+        if(pathIndex<route.length){ marker.setPosition(route[pathIndex]); map.panTo(route[pathIndex]); pathIndex++; }
+        else { clearInterval(trackingInterval); if(currentOrder){ currentOrder.status="Delivered ✅"; showOrderStatus(); } }
+      },1500);
+    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      setupPaymentInputs();
-      updateCart();
-      showOrderStatus();
-      // hide trackOrders until order is placed
-      document.getElementById('trackOrders').style.display = 'none';
+    document.addEventListener('DOMContentLoaded', ()=>{
+      setupPaymentInputs(); updateCart(); showOrderStatus();
+      document.getElementById('trackOrders').style.display='none';
     });
   </script>
 
- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Warangal Delivery Tracking Map</title>
-  <style>
-    body {
-      background: #f8f8f8;
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    #trackingMap {
-      margin: 20px auto;
-      padding: 20px;
-      max-width: 900px;
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      text-align: center;
-    }
-    h2 {
-      color: #ff5733;
-      margin-bottom: 15px;
-    }
-    iframe {
-      width: 100%;
-      height: 500px;
-      border: 0;
-      border-radius: 10px;
-    }
-  </style>
-</head>
-<body>
-  <div id="trackingMap">
-    <h2>🗺️ Track Delivery (Warangal)</h2>
-    <iframe 
-      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d37938.16061976838!2d79.55960928725303!3d17.978423756944954!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a33450f82cf3c63%3A0x88652b5120a4f0e7!2sWarangal%2C%20Telangana!5e0!3m2!1sen!2sin!4v1695479990000!5m2!1sen!2sin" 
-      allowfullscreen 
-      loading="lazy" 
-      referrerpolicy="no-referrer-when-downgrade">
-    </iframe>
-  </div>
- </script>
+  <!-- Google Maps API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
 </body>
 </html>
